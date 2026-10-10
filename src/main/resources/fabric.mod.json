@@ -1,0 +1,30 @@
+{
+	"schemaVersion": 1,
+	"id": "hardcore_expeditions",
+	"version": "${version}",
+	"name": "Hardcore Expeditions",
+	"description": "Shared hardcore runs: one death resets everyone into a brand-new world.",
+	"authors": [
+		"elibennett03"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/hardcore_expeditions/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.elibennett.hardcoreexpeditions.HardcoreExpeditions"
+		],
+		"client": [
+			"com.elibennett.hardcoreexpeditions.client.HardcoreExpeditionsClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	},
+	"mixins": [
+		"hardcore_expeditions.mixins.json"
+	]
+}
