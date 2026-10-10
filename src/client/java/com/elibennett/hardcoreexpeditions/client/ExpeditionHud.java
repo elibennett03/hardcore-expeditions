@@ -39,58 +39,21 @@ final class ExpeditionHud implements HudElement {
 		}
 	}
 
+	/** One small line in the top-left: "Expedition #3  12:34". No background box. */
 	private static void drawPanel(GuiGraphicsExtractor graphics, Font font, ExpeditionSyncPayload state) {
-		Phase phase = ClientExpeditionState.phase();
 		String title = "Expedition #" + state.expedition();
 		String time = ExpeditionTime.format(ClientExpeditionState.elapsedMs());
-		String deaths = "Deaths: " + state.totalDeaths();
-		String status = switch (phase) {
-			case RUNNING -> null;
-			case COUNTDOWN -> "Failed";
-			case COMPLETED -> "Dragon defeated!";
-		};
-		String best = state.bestTimeMs() >= 0 ? "Best: " + ExpeditionTime.format(state.bestTimeMs()) : null;
-
-		int x = 6;
-		int y = 6;
-		int lineHeight = font.lineHeight + 2;
-		int width = Math.max(Math.max(font.width(title), font.width(time) * 2), font.width(deaths));
-		if (status != null) {
-			width = Math.max(width, font.width(status));
-		}
-		if (best != null) {
-			width = Math.max(width, font.width(best));
-		}
-		int lines = 2 + (status != null ? 1 : 0) + (best != null ? 1 : 0);
-		int height = lineHeight * lines + font.lineHeight * 2 + 6;
-
-		graphics.fill(x - 4, y - 4, x + width + 4, y + height, 0x90000000);
-
-		graphics.text(font, title, x, y, GOLD, true);
-		y += lineHeight;
-
-		// Timer drawn at double size so it's readable at a glance.
-		int timerColor = switch (phase) {
+		// The timer's color shows the state: white while running, red after a death, green once the dragon is dead.
+		int timerColor = switch (ClientExpeditionState.phase()) {
 			case RUNNING -> WHITE;
 			case COUNTDOWN -> RED;
 			case COMPLETED -> GREEN;
 		};
-		graphics.pose().pushMatrix();
-		graphics.pose().translate(x, y);
-		graphics.pose().scale(2.0F, 2.0F);
-		graphics.text(font, time, 0, 0, timerColor, true);
-		graphics.pose().popMatrix();
-		y += font.lineHeight * 2 + 4;
 
-		graphics.text(font, deaths, x, y, RED, true);
-		y += lineHeight;
-		if (status != null) {
-			graphics.text(font, status, x, y, phase == Phase.COMPLETED ? GREEN : RED, true);
-			y += lineHeight;
-		}
-		if (best != null) {
-			graphics.text(font, best, x, y, GRAY, true);
-		}
+		int x = 4;
+		int y = 4;
+		graphics.text(font, title, x, y, GOLD, true);
+		graphics.text(font, time, x + font.width(title) + 6, y, timerColor, true);
 	}
 
 	private static void drawDeathOverlay(GuiGraphicsExtractor graphics, Font font, ExpeditionSyncPayload state) {
