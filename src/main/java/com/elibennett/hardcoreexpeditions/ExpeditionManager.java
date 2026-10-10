@@ -32,10 +32,7 @@ import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.ScoreHolder;
-import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
@@ -125,11 +122,15 @@ public final class ExpeditionManager {
 	}
 
 	private void start() {
+		if (this.data.worldId == 0) {
+			// Saves from before world folders had their own counter used the expedition number.
+			this.data.worldId = this.data.expeditionNumber;
+		}
 		boolean resume = this.data.expeditionNumber > 0 && this.data.phase != Phase.COUNTDOWN;
-		deleteLeftoverWorlds(resume ? this.data.expeditionNumber : -1);
+		deleteLeftoverWorlds(resume ? this.data.worldId : -1);
 
 		if (resume) {
-			this.worlds = ExpeditionWorlds.open(this.server, this.data.expeditionNumber, this.data.seed);
+			this.worlds = ExpeditionWorlds.open(this.server, this.data.expeditionNumber, this.data.worldId, this.data.seed);
 			this.worlds.restoreClocks(this.data);
 			LevelData.RespawnData saved = this.server.getWorldData().overworldData().getRespawnData();
 			this.spawn = saved.dimension().equals(this.worlds.overworld().dimension()) ? saved.pos() : this.worlds.findSpawn();
@@ -138,11 +139,11 @@ public final class ExpeditionManager {
 			((MinecraftServerAccessor) this.server).hardcoreExpeditions$updateEffectiveRespawnData();
 		} else {
 			// First launch, or the server stopped during a countdown: go straight to a new expedition.
-			ExpeditionWorlds fresh = ExpeditionWorlds.open(this.server, this.data.expeditionNumber + 1, RandomSupport.generateUniqueSeed());
+			ExpeditionWorlds fresh = openNextWorlds();
 			beginExpedition(fresh, fresh.findSpawn());
 		}
 
-		setUpDeathsObjective();
+		removeOldDeathsObjective();
 		this.lastTickNanos = System.nanoTime();
 	}
 
@@ -220,12 +221,37 @@ public final class ExpeditionManager {
 		return true;
 	}
 
+	/**
+	 * Wipes all stats (deaths, history, times) and starts over at Expedition #1 after the usual
+	 * countdown (the {@code /expedition reset confirm} command).
+	 */
+	public boolean requestFullReset(String requestedBy) {
+		if (this.data.phase == Phase.COUNTDOWN) {
+			return false;
+		}
+		this.data.totalDeaths = 0;
+		this.data.players.clear();
+		this.data.history.clear();
+		this.data.bestTimeMs = null;
+		this.data.restartNumbering = true;
+		this.leaderboard = null;
+		startCountdown("", Component.literal(requestedBy + " reset all expedition stats"));
+		save();
+		syncAll();
+		return true;
+	}
+
+	/** Creates the worlds for the next expedition, in fresh folders with a new seed. */
+	private ExpeditionWorlds openNextWorlds() {
+		int number = this.data.restartNumbering ? 1 : this.data.expeditionNumber + 1;
+		return ExpeditionWorlds.open(this.server, number, this.data.worldId + 1, RandomSupport.generateUniqueSeed());
+	}
+
 	private void recordDeath(ServerPlayer player) {
 		this.data.totalDeaths++;
 		PlayerStats stats = this.data.players.computeIfAbsent(player.getUUID().toString(), uuid -> new PlayerStats());
 		stats.name = player.getScoreboardName();
 		stats.deaths++;
-		setDeathsScore(stats);
 		this.leaderboard = null;
 	}
 
@@ -255,7 +281,7 @@ public final class ExpeditionManager {
 		if (this.nextWorlds == null) {
 			// Generating the new world pauses the server for a moment, so the countdown only starts
 			// once it's ready. Everyone keeps seeing "5" while it's being made.
-			this.nextWorlds = ExpeditionWorlds.open(this.server, this.data.expeditionNumber + 1, RandomSupport.generateUniqueSeed());
+			this.nextWorlds = openNextWorlds();
 			this.nextSpawn = this.nextWorlds.findSpawn();
 			this.countdownStartNanos = System.nanoTime();
 			return;
@@ -296,6 +322,8 @@ public final class ExpeditionManager {
 		this.deathMessage = Component.empty();
 
 		this.data.expeditionNumber = newWorlds.number;
+		this.data.worldId = newWorlds.worldId;
+		this.data.restartNumbering = false;
 		this.data.seed = newWorlds.seed;
 		this.data.phase = Phase.RUNNING;
 		this.data.elapsedMs = 0;
@@ -504,24 +532,15 @@ public final class ExpeditionManager {
 		}
 	}
 
-	/** Shows each player's all-time death count next to their name in the Tab player list. */
-	private void setUpDeathsObjective() {
+	/**
+	 * Earlier versions showed death counts next to names in the vanilla Tab list. Deaths now only
+	 * appear in the mod's own stats panel, so remove the old scoreboard objective if it's still there.
+	 */
+	private void removeOldDeathsObjective() {
 		ServerScoreboard scoreboard = this.server.getScoreboard();
 		Objective objective = scoreboard.getObjective(DEATHS_OBJECTIVE);
-		if (objective == null) {
-			objective = scoreboard.addObjective(DEATHS_OBJECTIVE, ObjectiveCriteria.DUMMY, Component.literal("Deaths"), ObjectiveCriteria.RenderType.INTEGER, false, null);
-		}
-		scoreboard.setDisplayObjective(DisplaySlot.LIST, objective);
-		for (PlayerStats stats : this.data.players.values()) {
-			setDeathsScore(stats);
-		}
-	}
-
-	private void setDeathsScore(PlayerStats stats) {
-		ServerScoreboard scoreboard = this.server.getScoreboard();
-		Objective objective = scoreboard.getObjective(DEATHS_OBJECTIVE);
-		if (objective != null && stats.name != null) {
-			scoreboard.getOrCreatePlayerScore(ScoreHolder.forNameOnly(stats.name), objective).set(stats.deaths);
+		if (objective != null) {
+			scoreboard.removeObjective(objective);
 		}
 	}
 
@@ -536,12 +555,12 @@ public final class ExpeditionManager {
 	}
 
 	/** Deletes expedition world folders left behind by a crash or a restart during a countdown. */
-	private void deleteLeftoverWorlds(int keepExpedition) {
+	private void deleteLeftoverWorlds(int keepWorldId) {
 		Path dir = this.server.getWorldPath(LevelResource.ROOT).resolve("dimensions").resolve(HardcoreExpeditions.MOD_ID);
 		if (!Files.isDirectory(dir)) {
 			return;
 		}
-		String keepPrefix = "expedition_" + keepExpedition + "_";
+		String keepPrefix = "expedition_" + keepWorldId + "_";
 		try (Stream<Path> children = Files.list(dir)) {
 			for (Path child : children.toList()) {
 				if (!child.getFileName().toString().startsWith(keepPrefix)) {

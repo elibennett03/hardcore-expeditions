@@ -35,6 +35,14 @@ public final class ExpeditionData {
 	/** Current expedition number (1, 2, 3...). 0 means no expedition has been started yet. */
 	public int expeditionNumber = 0;
 	public long seed;
+	/**
+	 * Numbers the world folders (dimensions/hardcore_expeditions/expedition_<worldId>_...). Separate
+	 * from expeditionNumber and never goes down, so restarting the numbering at #1 can't collide with
+	 * an existing folder.
+	 */
+	public int worldId;
+	/** Set by /expedition reset: the next expedition is #1 again. */
+	public boolean restartNumbering;
 	public Phase phase = Phase.RUNNING;
 	/** How long the current expedition has been running, counted only while at least one player is online. */
 	public long elapsedMs;

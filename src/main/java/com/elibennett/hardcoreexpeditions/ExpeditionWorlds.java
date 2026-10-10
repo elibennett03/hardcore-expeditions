@@ -27,14 +27,18 @@ import xyz.nucleoid.fantasy.RuntimeLevelHandle;
  * server is running with a brand-new seed, and deleted from disk when the expedition ends.
  */
 public final class ExpeditionWorlds {
+	/** The expedition number players see ("Expedition #3"). */
 	public final int number;
+	/** Which world folders these are; see {@link ExpeditionData#worldId}. */
+	public final int worldId;
 	public final long seed;
 	private final RuntimeLevelHandle overworld;
 	private final RuntimeLevelHandle nether;
 	private final RuntimeLevelHandle end;
 
-	private ExpeditionWorlds(int number, long seed, RuntimeLevelHandle overworld, RuntimeLevelHandle nether, RuntimeLevelHandle end) {
+	private ExpeditionWorlds(int number, int worldId, long seed, RuntimeLevelHandle overworld, RuntimeLevelHandle nether, RuntimeLevelHandle end) {
 		this.number = number;
+		this.worldId = worldId;
 		this.seed = seed;
 		this.overworld = overworld;
 		this.nether = nether;
@@ -42,19 +46,20 @@ public final class ExpeditionWorlds {
 	}
 
 	/** Opens the worlds for an expedition, creating them if they don't exist yet. */
-	public static ExpeditionWorlds open(MinecraftServer server, int number, long seed) {
+	public static ExpeditionWorlds open(MinecraftServer server, int number, int worldId, long seed) {
 		Fantasy fantasy = Fantasy.get(server);
 		return new ExpeditionWorlds(
 				number,
+				worldId,
 				seed,
-				fantasy.getOrOpenPersistentLevel(id(number, "overworld"), config(server, seed, BuiltinDimensionTypes.OVERWORLD, LevelStem.OVERWORLD, true)),
-				fantasy.getOrOpenPersistentLevel(id(number, "nether"), config(server, seed, BuiltinDimensionTypes.NETHER, LevelStem.NETHER, false)),
-				fantasy.getOrOpenPersistentLevel(id(number, "end"), config(server, seed, BuiltinDimensionTypes.END, LevelStem.END, false))
+				fantasy.getOrOpenPersistentLevel(id(worldId, "overworld"), config(server, seed, BuiltinDimensionTypes.OVERWORLD, LevelStem.OVERWORLD, true)),
+				fantasy.getOrOpenPersistentLevel(id(worldId, "nether"), config(server, seed, BuiltinDimensionTypes.NETHER, LevelStem.NETHER, false)),
+				fantasy.getOrOpenPersistentLevel(id(worldId, "end"), config(server, seed, BuiltinDimensionTypes.END, LevelStem.END, false))
 		);
 	}
 
-	public static Identifier id(int number, String dimension) {
-		return Identifier.fromNamespaceAndPath(HardcoreExpeditions.MOD_ID, "expedition_" + number + "_" + dimension);
+	public static Identifier id(int worldId, String dimension) {
+		return Identifier.fromNamespaceAndPath(HardcoreExpeditions.MOD_ID, "expedition_" + worldId + "_" + dimension);
 	}
 
 	private static RuntimeLevelConfig config(MinecraftServer server, long seed, ResourceKey<DimensionType> type, ResourceKey<LevelStem> stem, boolean overworld) {

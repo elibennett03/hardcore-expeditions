@@ -15,6 +15,7 @@ import java.util.List;
  * {@code /expedition}        current expedition info (anyone)
  * {@code /expedition stats}  all-time deaths per player, best time, recent runs (anyone)
  * {@code /expedition new}    abandon the current expedition and start a new one (operators)
+ * {@code /expedition reset}  wipe all stats and start over at Expedition #1 (operators, needs "confirm")
  */
 final class ExpeditionCommands {
 	private ExpeditionCommands() {
@@ -26,7 +27,11 @@ final class ExpeditionCommands {
 				.then(Commands.literal("stats").executes(ctx -> stats(ctx.getSource())))
 				.then(Commands.literal("new")
 						.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
-						.executes(ctx -> newExpedition(ctx.getSource()))));
+						.executes(ctx -> newExpedition(ctx.getSource())))
+				.then(Commands.literal("reset")
+						.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+						.executes(ctx -> resetWarning(ctx.getSource()))
+						.then(Commands.literal("confirm").executes(ctx -> reset(ctx.getSource())))));
 	}
 
 	private static int info(CommandSourceStack source) {
@@ -74,6 +79,21 @@ final class ExpeditionCommands {
 		for (RunRecord run : recent.reversed()) {
 			String outcome = run.completed ? "Dragon defeated" : run.reason;
 			source.sendSuccess(() -> Component.literal("  #" + run.expedition + "  " + ExpeditionTime.format(run.durationMs) + "  " + outcome).withStyle(ChatFormatting.GRAY), false);
+		}
+		return 1;
+	}
+
+	private static int resetWarning(CommandSourceStack source) {
+		source.sendSuccess(() -> Component.literal("This deletes ALL expedition stats (every death, run time and best time) and starts over at Expedition #1.").withStyle(ChatFormatting.RED), false);
+		source.sendSuccess(() -> Component.literal("Type /expedition reset confirm to do it."), false);
+		return 1;
+	}
+
+	private static int reset(CommandSourceStack source) {
+		ExpeditionManager manager = ExpeditionManager.get();
+		if (manager == null || !manager.requestFullReset(source.getTextName())) {
+			source.sendFailure(Component.literal("A new expedition is already starting. Try again in a few seconds."));
+			return 0;
 		}
 		return 1;
 	}

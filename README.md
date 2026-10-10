@@ -5,7 +5,7 @@ A Fabric mod for Minecraft **26.2** and **26.3** that turns hardcore into a shar
 - Each run is an **expedition**: a brand-new Overworld, Nether and End with a random seed.
 - A **timer** tracks how long the group has survived. It only counts while at least one player is online.
 - If **anyone** dies, everyone sees "*name* has died" with a **5-second countdown**. Then the whole group is sent to a fresh expedition with a new seed, empty inventories, and reset XP, advancements and recipes.
-- **Deaths are tallied**, both in total and per player. Each player's count shows next to their name in the Tab list.
+- **Deaths are tallied**, both in total and per player, and shown in the mod's stats panel (hold Tab) and `/expedition stats`.
 - Killing the **Ender Dragon** completes the expedition and stops the timer at your final time. The best time is saved.
 
 Everything happens inside the running server. Nobody gets disconnected, and old expedition worlds are deleted automatically.
@@ -41,6 +41,7 @@ Spawn protection is automatically turned off inside expeditions, since every run
 | `/expedition` | Everyone | Current expedition number, status, time and seed |
 | `/expedition stats` | Everyone | All-time deaths per player, best time, recent runs |
 | `/expedition new` | Operators | Abandon the current expedition and start a new one (also how you start again after beating the dragon) |
+| `/expedition reset confirm` | Operators | Wipe **all** stats (deaths, run history, best times) and start over at Expedition #1 |
 
 ## How it works
 

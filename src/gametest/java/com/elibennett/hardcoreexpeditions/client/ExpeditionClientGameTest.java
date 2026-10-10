@@ -156,6 +156,19 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			server.waitFor(s -> data().expeditionNumber == 3 && data().phase == Phase.RUNNING, TIMEOUT);
 			check(server.computeOnServer(s -> dimension(player(s))).equals("hardcore_expeditions:expedition_3_overworld"), "/expedition new after a win starts Expedition #3");
 
+			// --- /expedition reset wipes all stats and starts over at #1, in fresh world folders -----
+			check(server.computeOnServer(s -> s.getScoreboard().getObjective("he_deaths") == null), "no death numbers in the vanilla Tab list");
+			server.runCommand("expedition reset confirm");
+			server.waitFor(s -> data().expeditionNumber == 1 && data().phase == Phase.RUNNING, TIMEOUT);
+			context.waitTicks(20);
+			server.runOnServer(s -> {
+				check(data().totalDeaths == 0 && data().players.isEmpty(), "reset cleared all deaths");
+				check(data().history.isEmpty() && data().bestTimeMs == null, "reset cleared run history and best time");
+				check(dimension(player(s)).equals("hardcore_expeditions:expedition_4_overworld"), "Expedition #1 after a reset uses new world folders");
+				check(player(s).getInventory().isEmpty(), "reset gave everyone a fresh start");
+			});
+			check(context.computeOnClient(mc -> ClientExpeditionState.get().expedition() == 1 && ClientExpeditionState.get().totalDeaths() == 0), "HUD shows Expedition #1 with 0 deaths after reset");
+
 			// --- HUD layout editor -------------------------------------------------------------------
 			context.setScreen(() -> new HudEditScreen(null));
 			context.waitTicks(10);
