@@ -29,6 +29,15 @@ loom {
 		runDir = "run/${project.mc}"
 	}
 
+	// Extra test players: ./gradlew runClient -Pplayer=Alex launches a client named Alex with its
+	// own folder, so several can run at once and join an offline-mode test server together.
+	if (project.hasProperty("player")) {
+		runs.named("client") {
+			runDir = "run/${project.mc}-client-${project.player}"
+			programArgs "--username", project.player, "--quickPlayMultiplayer", "localhost:25565"
+		}
+	}
+
 	mods {
 		"hardcore_expeditions" {
 			sourceSet sourceSets.main
