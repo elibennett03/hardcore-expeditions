@@ -1,5 +1,6 @@
 package com.elibennett.hardcoreexpeditions;
 
+import com.elibennett.hardcoreexpeditions.compat.VersionCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -122,8 +123,8 @@ public final class ExpeditionWorlds {
 
 	public void saveClocks(ExpeditionData data) {
 		MinecraftServer server = overworld().getServer();
-		data.overworldClockTicks = overworld().clockManager().getTotalTicks(server.registryAccess().getOrThrow(WorldClocks.OVERWORLD));
-		data.endClockTicks = end().clockManager().getTotalTicks(server.registryAccess().getOrThrow(WorldClocks.THE_END));
+		data.overworldClockTicks = VersionCompat.clockTicks(overworld(), server.registryAccess().getOrThrow(WorldClocks.OVERWORLD));
+		data.endClockTicks = VersionCompat.clockTicks(end(), server.registryAccess().getOrThrow(WorldClocks.THE_END));
 	}
 
 	public void restoreClocks(ExpeditionData data) {
@@ -143,7 +144,7 @@ public final class ExpeditionWorlds {
 	public BlockPos findSpawn() {
 		ServerLevel level = overworld();
 		ServerChunkCache chunkSource = level.getChunkSource();
-		ChunkPos spawnChunk = ChunkPos.containing(chunkSource.randomState().sampler().findSpawnPosition());
+		ChunkPos spawnChunk = VersionCompat.spawnChunk(chunkSource);
 		int height = chunkSource.getGenerator().getSpawnHeight(level);
 		if (height < level.getMinY()) {
 			BlockPos corner = spawnChunk.getWorldPosition();

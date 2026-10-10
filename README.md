@@ -1,6 +1,6 @@
 # Hardcore Expeditions
 
-A Fabric mod for Minecraft **26.2** that turns hardcore into a shared run for you and your friends.
+A Fabric mod for Minecraft **26.2** and **26.3** that turns hardcore into a shared run for you and your friends.
 
 - Each run is an **expedition**: a brand-new Overworld, Nether and End with a random seed.
 - A **timer** tracks how long the group has survived. It only counts while at least one player is online.
@@ -12,9 +12,9 @@ Everything happens inside the running server. Nobody gets disconnected, and old 
 
 ## Installing
 
-Requires Fabric Loader 0.19.5+ and [Fabric API](https://modrinth.com/mod/fabric-api) for 26.2. The world-creation library ([Fantasy](https://github.com/NucleoidMC/fantasy)) is bundled inside the jar.
+Requires Fabric Loader 0.19.5+ and [Fabric API](https://modrinth.com/mod/fabric-api) for your Minecraft version. Use the jar that matches your version: `hardcore-expeditions-1.0.0+mc26.2.jar` or `hardcore-expeditions-1.0.0+mc26.3.jar`. The server and every player must use the same Minecraft version. The world-creation library ([Fantasy](https://github.com/NucleoidMC/fantasy)) is bundled inside the jar.
 
-**Server:** put `hardcore-expeditions-x.y.z.jar` and Fabric API in the server's `mods/` folder.
+**Server:** put the matching `hardcore-expeditions` jar and Fabric API in the server's `mods/` folder.
 
 **Players (optional, recommended):** add the same jar and Fabric API to your client. In Lunar Client, open the Fabric add-on settings and drag the jars in. With the mod installed you get the custom on-screen timer panel and death overlay. Without it, you still see everything through a boss bar and on-screen titles.
 
@@ -53,9 +53,12 @@ The vanilla `minecraft:overworld` world still exists but is only a placeholder. 
 You need **Java 25**.
 
 ```sh
-./gradlew build        # jar ends up in build/libs/
-./gradlew runServer    # local test server in ./run (accept the EULA in run/eula.txt first)
-./gradlew runClient    # test client
+./gradlew build                 # 26.2 jar in build/libs/
+./gradlew build -Pmc=26.3       # 26.3 jar in build/libs/
+./gradlew runServer -Pmc=26.3   # local test server in run/26.3 (accept the EULA in run/26.3/eula.txt first)
+./gradlew runClient             # test client
 ```
+
+Most code is shared. The few calls that differ between Minecraft versions live in `src/versions/<mc>/`, and each version's dependency numbers are in `versions/<mc>.properties`. To add a new Minecraft version, add both, then fix whatever fails to compile.
 
 In VS Code, install the **Extension Pack for Java** and open this folder.

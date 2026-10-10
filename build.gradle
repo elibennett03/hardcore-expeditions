@@ -3,13 +3,29 @@ plugins {
 	id 'maven-publish'
 }
 
+// Load the dependency versions for the Minecraft version being built (see versions/*.properties).
+def mcProps = new Properties()
+file("versions/${project.mc}.properties").withInputStream { mcProps.load(it) }
+mcProps.each { key, value -> project.ext.set(key, value) }
+
+// e.g. hardcore-expeditions-1.0.0+mc26.3.jar, so jars for different versions don't overwrite each other.
+version = "${project.version}+mc${project.minecraft_version}"
+
 repositories {
 	// Fantasy (runtime world creation) is hosted on the Nucleoid maven.
 	maven { url = 'https://maven.nucleoid.xyz/' }
 }
 
+// Version-specific code (see src/versions/<mc>/) is compiled alongside the shared code.
+sourceSets.main.java.srcDir "src/versions/${project.mc}/java"
+
 loom {
 	splitEnvironmentSourceSets()
+
+	// Separate test-server/client folder per Minecraft version (run/26.2, run/26.3).
+	runs.configureEach {
+		runDir = "run/${project.mc}"
+	}
 
 	mods {
 		"hardcore_expeditions" {
@@ -35,10 +51,12 @@ dependencies {
 
 processResources {
 	def version = project.version
+	def minecraftVersion = project.minecraft_version
 	inputs.property "version", version
+	inputs.property "minecraftVersion", minecraftVersion
 
 	filesMatching("fabric.mod.json") {
-		expand "version": version
+		expand "version": version, "minecraft_version": minecraftVersion
 	}
 }
 
