@@ -76,7 +76,7 @@ public final class HudEditScreen extends Screen {
 	}
 
 	private ExpeditionHud.Layout layout() {
-		return ExpeditionHud.layout(this.font, previewState(), this.width, this.height);
+		return ExpeditionHud.layout(this.font, previewState(), this.width, this.height, true);
 	}
 
 	@Override

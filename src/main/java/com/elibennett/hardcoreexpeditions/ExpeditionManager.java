@@ -75,6 +75,9 @@ public final class ExpeditionManager {
 	private String deadPlayer = "";
 	private Component deathMessage = Component.empty();
 
+	/** Sorted all-time deaths, sent to modded players. Rebuilt only when someone dies. */
+	private List<ExpeditionSyncPayload.PlayerDeaths> leaderboard;
+
 	private long lastTickNanos;
 	private long elapsedNanosRemainder;
 	private int tickCounter;
@@ -223,6 +226,7 @@ public final class ExpeditionManager {
 		stats.name = player.getScoreboardName();
 		stats.deaths++;
 		setDeathsScore(stats);
+		this.leaderboard = null;
 	}
 
 	private void endRun(String endedBy, String reason, boolean completed) {
@@ -441,17 +445,27 @@ public final class ExpeditionManager {
 				this.countdownShown,
 				this.deadPlayer,
 				this.deathMessage,
-				this.data.players.values().stream()
-						.filter(stats -> stats.name != null)
-						.sorted(Comparator.comparingInt((PlayerStats stats) -> stats.deaths).reversed())
-						.limit(20)
-						.map(stats -> new ExpeditionSyncPayload.PlayerDeaths(stats.name, stats.deaths))
-						.toList(),
+				leaderboard(),
 				this.data.history.size()
 		);
 	}
 
+	private List<ExpeditionSyncPayload.PlayerDeaths> leaderboard() {
+		if (this.leaderboard == null) {
+			this.leaderboard = this.data.players.values().stream()
+					.filter(stats -> stats.name != null)
+					.sorted(Comparator.comparingInt((PlayerStats stats) -> stats.deaths).reversed())
+					.limit(20)
+					.map(stats -> new ExpeditionSyncPayload.PlayerDeaths(stats.name, stats.deaths))
+					.toList();
+		}
+		return this.leaderboard;
+	}
+
 	private void syncAll() {
+		if (this.server.getPlayerList().getPlayers().isEmpty()) {
+			return;
+		}
 		ExpeditionSyncPayload payload = snapshot();
 		for (ServerPlayer player : this.server.getPlayerList().getPlayers()) {
 			boolean modded = hasMod(player);

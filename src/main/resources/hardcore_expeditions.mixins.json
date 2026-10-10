@@ -6,6 +6,7 @@
 		"DedicatedServerMixin",
 		"EndPortalBlockMixin",
 		"EnderDragonFightMixin",
+		"FantasyLevelDeletionMixin",
 		"LocationPredicateMixin",
 		"MinecraftServerAccessor",
 		"NetherPortalBlockMixin",
