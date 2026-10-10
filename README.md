@@ -28,6 +28,12 @@ hardcore=true        # hardcore hearts, difficulty locked to Hard
 
 Spawn protection is automatically turned off inside expeditions, since every run starts at spawn.
 
+## Customizing the HUD (players with the mod)
+
+- **Stats key:** Options → Controls → Key Binds → *Hardcore Expeditions* → "Show Expedition Stats" (default **Tab**).
+- **Move and resize:** open the layout editor in any of three ways: the config button in **Mod Menu**, the "Edit HUD Layout" key bind (unbound by default), or the **`/expeditionhud`** command. Drag the timer and stats panel where you want them, and use the sliders to resize them. You can also switch the stats key between *Hold* and *Toggle*.
+- Your layout is saved in `config/hardcore_expeditions-client.json`.
+
 ## Commands
 
 | Command | Who | What it does |

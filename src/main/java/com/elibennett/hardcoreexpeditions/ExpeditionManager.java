@@ -145,7 +145,9 @@ public final class ExpeditionManager {
 
 	void tick() {
 		long now = System.nanoTime();
-		long delta = now - this.lastTickNanos;
+		// A singleplayer world stops ticking while the game is paused. Cap each step so un-pausing
+		// doesn't add the whole pause to the timer in one jump.
+		long delta = Math.min(now - this.lastTickNanos, 1_000_000_000L);
 		this.lastTickNanos = now;
 
 		// The timer only runs while at least one player is online.

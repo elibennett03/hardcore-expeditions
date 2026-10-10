@@ -14,6 +14,8 @@ version = "${project.version}+mc${project.minecraft_version}"
 repositories {
 	// Fantasy (runtime world creation) is hosted on the Nucleoid maven.
 	maven { url = 'https://maven.nucleoid.xyz/' }
+	// Mod Menu, only needed to compile the optional config-button integration.
+	maven { url = 'https://maven.terraformersmc.com/releases/' }
 }
 
 // Version-specific code (see src/versions/<mc>/) is compiled alongside the shared code.
@@ -47,6 +49,9 @@ dependencies {
 	// "include" bundles it inside our jar so players/servers only need to install one file.
 	implementation "xyz.nucleoid:fantasy:${project.fantasy_version}"
 	include "xyz.nucleoid:fantasy:${project.fantasy_version}"
+
+	// Optional: if Mod Menu is installed, its config button opens our HUD layout editor.
+	compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 processResources {

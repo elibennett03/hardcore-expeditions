@@ -16,6 +16,9 @@
 		],
 		"client": [
 			"com.elibennett.hardcoreexpeditions.client.HardcoreExpeditionsClient"
+		],
+		"modmenu": [
+			"com.elibennett.hardcoreexpeditions.client.ModMenuIntegration"
 		]
 	},
 	"depends": {

@@ -1,6 +1,5 @@
 package com.elibennett.hardcoreexpeditions.client;
 
-import com.elibennett.hardcoreexpeditions.ExpeditionData;
 import com.elibennett.hardcoreexpeditions.network.ExpeditionSyncPayload;
 import net.minecraft.util.Util;
 
@@ -25,15 +24,11 @@ final class ClientExpeditionState {
 		return latest;
 	}
 
-	static ExpeditionData.Phase phase() {
-		return ExpeditionData.Phase.values()[latest.phase()];
-	}
-
 	/** Server only updates once a second; count up locally in between so the timer ticks smoothly. */
-	static long elapsedMs() {
-		if (latest == null) {
-			return 0;
+	static long elapsedMs(ExpeditionSyncPayload state) {
+		if (state != latest || !state.timerRunning()) {
+			return state.elapsedMs();
 		}
-		return latest.timerRunning() ? latest.elapsedMs() + (Util.getMillis() - receivedAtMs) : latest.elapsedMs();
+		return state.elapsedMs() + (Util.getMillis() - receivedAtMs);
 	}
 }
