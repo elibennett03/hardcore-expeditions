@@ -65,6 +65,8 @@ You need **Java 25**.
 ./gradlew runClient             # test client
 ```
 
+`./gradlew runClientGameTest` (add `-Pmc=26.3` for 26.3) runs the automated end-to-end test in `src/gametest`. It opens a real Minecraft client that joins a real dedicated server, then checks portals, advancements, a death and the full reset (inventory, ender chest, XP, advancements, old worlds deleted), the dragon kill, and `/expedition new`. Screenshots of the HUD are saved to `build/run/clientGameTest/screenshots/`.
+
 Most code is shared. The few calls that differ between Minecraft versions live in `src/versions/<mc>/`, and each version's dependency numbers are in `versions/<mc>.properties`. To add a new Minecraft version, add both, then fix whatever fails to compile.
 
 In VS Code, install the **Extension Pack for Java** and open this folder.

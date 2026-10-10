@@ -26,7 +26,7 @@ public final class HudEditScreen extends Screen {
 	private static final ExpeditionSyncPayload SAMPLE = new ExpeditionSyncPayload(
 			3, Phase.RUNNING.ordinal(), 754_000, false, 9, 5_025_000, 0, "", Component.empty(),
 			List.of(new ExpeditionSyncPayload.PlayerDeaths("Steve", 5), new ExpeditionSyncPayload.PlayerDeaths("Alex", 3), new ExpeditionSyncPayload.PlayerDeaths("Notch", 1)),
-			12);
+			12, 2_710_000);
 
 	private enum Dragging { NONE, LINE, STATS }
 

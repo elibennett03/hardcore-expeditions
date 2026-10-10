@@ -16,8 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Draws the expedition line, the stats panel while its key is active, and, after a death, the
- * full-screen "<player> has died" overlay with the countdown to the new world. Where the line and
+ * Draws the expedition line and the stats panel while its key is active, plus (as a separate
+ * element) the full-screen "<player> has died" overlay with the countdown to the new world. Where the line and
  * panel go comes from {@link HudConfig}, which players change in {@link HudEditScreen}.
  */
 final class ExpeditionHud implements HudElement {
@@ -54,8 +54,7 @@ final class ExpeditionHud implements HudElement {
 		}
 
 		Font font = minecraft.font;
-		// F1 (hide HUD) and F3 (debug screen, which uses the same corner) hide the line and stats,
-		// but never the death overlay.
+		// F1 (hide HUD) and F3 (debug screen, which uses the same corner) hide the line and stats.
 		boolean hudHidden = minecraft.gameRenderer.gameRenderState().guiRenderState.isHudHidden;
 		if (!hudHidden && !minecraft.getDebugOverlay().showDebugScreen()) {
 			boolean showStats = ExpeditionKeys.statsVisible() && minecraft.player != null;
@@ -65,9 +64,21 @@ final class ExpeditionHud implements HudElement {
 				drawStats(graphics, font, state, layout.stats(), minecraft.player.getScoreboardName());
 			}
 		}
-		if (phase(state) == Phase.COUNTDOWN) {
-			drawDeathOverlay(graphics, font, state);
+	}
+
+	/**
+	 * The death overlay is its own HUD element, attached after chat and the player list so it
+	 * covers them (see {@link HardcoreExpeditionsClient}).
+	 */
+	static final HudElement DEATH_OVERLAY = (graphics, deltaTracker) -> {
+		if (deathOverlayShowing()) {
+			drawDeathOverlay(graphics, Minecraft.getInstance().font, ClientExpeditionState.get());
 		}
+	};
+
+	static boolean deathOverlayShowing() {
+		ExpeditionSyncPayload state = ClientExpeditionState.get();
+		return state != null && phase(state) == Phase.COUNTDOWN;
 	}
 
 	private static Phase phase(ExpeditionSyncPayload state) {
@@ -209,7 +220,9 @@ final class ExpeditionHud implements HudElement {
 		String[][] totals = {
 				{"Total deaths", String.valueOf(state.totalDeaths())},
 				{"Expeditions", String.valueOf(state.expeditionsPlayed())},
-				{"Best time", state.bestTimeMs() >= 0 ? ExpeditionTime.format(state.bestTimeMs()) : "-"},
+				{"Longest run", state.longestRunMs() >= 0 ? ExpeditionTime.format(state.longestRunMs()) : "-"},
+				// Only expeditions where the dragon was killed count here.
+				{"Fastest win", state.bestTimeMs() >= 0 ? ExpeditionTime.format(state.bestTimeMs()) : "-"},
 		};
 
 		int width = font.width("Most deaths");
@@ -274,6 +287,9 @@ final class ExpeditionHud implements HudElement {
 		int centerX = width / 2;
 		int centerY = height / 2;
 
+		// Start a new drawing layer so the overlay covers chat instead of sitting underneath it.
+		graphics.nextStratum();
+
 		// Fade everything in over a quarter second instead of snapping on.
 		float fade = Mth.clamp(ClientExpeditionState.msSinceCountdownStarted() / 250.0F, 0.0F, 1.0F);
 
@@ -283,7 +299,9 @@ final class ExpeditionHud implements HudElement {
 
 		String headline = state.deadPlayer().isEmpty() ? "New expedition!" : state.deadPlayer() + " has died";
 		int headlineColor = state.deadPlayer().isEmpty() ? GOLD : RED;
-		drawCentered(graphics, font, Component.literal(headline), centerX, centerY - 64, 3.0F, withAlpha(headlineColor, 0xFF * fade));
+		// Shrink long names so the headline always fits on screen.
+		float headlineScale = Math.min(3.0F, (width - 20) / (float) font.width(headline));
+		drawCentered(graphics, font, Component.literal(headline), centerX, centerY - 64, headlineScale, withAlpha(headlineColor, 0xFF * fade));
 
 		if (!state.deathMessage().getString().isEmpty()) {
 			drawCentered(graphics, font, state.deathMessage(), centerX, centerY - 32, 1.0F, withAlpha(WHITE, 0xFF * fade));

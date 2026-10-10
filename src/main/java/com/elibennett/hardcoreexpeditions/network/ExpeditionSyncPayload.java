@@ -22,6 +22,7 @@ import java.util.List;
  * @param deathMessage    vanilla death message, e.g. "Steve was slain by Zombie"
  * @param leaderboard     all-time deaths per player, most deaths first (shown while holding Tab)
  * @param expeditionsPlayed how many expeditions have ended so far
+ * @param longestRunMs    longest any expedition has lasted (won or not), or -1 if none have ended
  */
 public record ExpeditionSyncPayload(
 		int expedition,
@@ -34,7 +35,8 @@ public record ExpeditionSyncPayload(
 		String deadPlayer,
 		Component deathMessage,
 		List<PlayerDeaths> leaderboard,
-		int expeditionsPlayed
+		int expeditionsPlayed,
+		long longestRunMs
 ) implements CustomPacketPayload {
 	public record PlayerDeaths(String name, int deaths) {
 	}
@@ -58,6 +60,7 @@ public record ExpeditionSyncPayload(
 			buf.writeVarInt(entry.deaths);
 		}
 		buf.writeVarInt(payload.expeditionsPlayed);
+		buf.writeVarLong(payload.longestRunMs);
 	}
 
 	private static ExpeditionSyncPayload read(RegistryFriendlyByteBuf buf) {
@@ -76,7 +79,8 @@ public record ExpeditionSyncPayload(
 			leaderboard.add(new PlayerDeaths(buf.readUtf(), buf.readVarInt()));
 		}
 		int expeditionsPlayed = buf.readVarInt();
-		return new ExpeditionSyncPayload(expedition, phase, elapsedMs, timerRunning, totalDeaths, bestTimeMs, countdown, deadPlayer, deathMessage, leaderboard, expeditionsPlayed);
+		long longestRunMs = buf.readVarLong();
+		return new ExpeditionSyncPayload(expedition, phase, elapsedMs, timerRunning, totalDeaths, bestTimeMs, countdown, deadPlayer, deathMessage, leaderboard, expeditionsPlayed, longestRunMs);
 	}
 
 	@Override

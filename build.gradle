@@ -104,3 +104,14 @@ publishing {
 		// retrieving dependencies.
 	}
 }
+
+// Automated in-game tests: ./gradlew runClientGameTest (launches a real client; see src/gametest).
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "hardcore_expeditions_test"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}

@@ -1,0 +1,224 @@
+package com.elibennett.hardcoreexpeditions.client;
+
+import com.elibennett.hardcoreexpeditions.ExpeditionData;
+import com.elibennett.hardcoreexpeditions.ExpeditionData.Phase;
+import com.elibennett.hardcoreexpeditions.ExpeditionManager;
+import com.elibennett.hardcoreexpeditions.ExpeditionWorlds;
+import com.elibennett.hardcoreexpeditions.HardcoreExpeditions;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+import net.minecraft.advancements.AdvancementHolder;
+import net.minecraft.advancements.triggers.CriteriaTriggers;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EndPortalBlock;
+import net.minecraft.world.level.block.NetherPortalBlock;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.portal.TeleportTransition;
+import net.minecraft.world.level.storage.LevelResource;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * End-to-end test on a real dedicated server with a real client: joining, portals, advancements,
+ * a death and the full reset, the dragon, and the HUD. Run with {@code ./gradlew runClientGameTest}.
+ * Screenshots land in the run folder's {@code screenshots/}.
+ */
+public class ExpeditionClientGameTest implements FabricClientGameTest {
+	private static final int TIMEOUT = 20 * 30;
+
+	@Override
+	public void runTest(ClientGameTestContext context) {
+		try (TestDedicatedServerContext server = context.worldBuilder().createServer();
+			 TestDedicatedServerConnection connection = server.connect()) {
+			connection.waitForChunksRender();
+
+			// --- Joining puts you in Expedition #1 and the HUD gets data from the server ---------------
+			check(server.computeOnServer(s -> data().expeditionNumber) == 1, "server starts on Expedition #1");
+			check(server.computeOnServer(s -> dimension(player(s))).equals("hardcore_expeditions:expedition_1_overworld"), "player spawns in the expedition overworld");
+			context.waitFor(mc -> ClientExpeditionState.get() != null, TIMEOUT);
+			check(true, "client received expedition data (mod detected over the network)");
+			context.waitTicks(40);
+			context.takeScreenshot("01-hud");
+
+			// --- Portals lead to this expedition's Nether and End, and their advancements trigger -----
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				ExpeditionWorlds w = worlds(p);
+				TeleportTransition toNether = ((NetherPortalBlock) Blocks.NETHER_PORTAL).getPortalDestination(w.overworld(), p, p.blockPosition());
+				check(toNether != null && toNether.newLevel() == w.nether(), "nether portal in expedition overworld leads to expedition nether");
+				p.teleport(toNether);
+			});
+			context.waitTicks(20);
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				ExpeditionWorlds w = worlds(p);
+				check(dimension(p).equals("hardcore_expeditions:expedition_1_nether"), "player is now in the expedition nether");
+				check(hasAdvancement(s, p, "minecraft:story/enter_the_nether"), "earned 'We Need to Go Deeper'");
+				check(hasAdvancement(s, p, "minecraft:nether/root"), "Nether advancement tab unlocked");
+				TeleportTransition back = ((NetherPortalBlock) Blocks.NETHER_PORTAL).getPortalDestination(w.nether(), p, p.blockPosition());
+				check(back != null && back.newLevel() == w.overworld(), "nether portal in expedition nether leads back to expedition overworld");
+
+				TeleportTransition toEnd = ((EndPortalBlock) Blocks.END_PORTAL).getPortalDestination(w.overworld(), p, p.blockPosition());
+				check(toEnd != null && toEnd.newLevel() == w.end(), "end portal leads to expedition end");
+				p.teleport(toEnd);
+			});
+			context.waitTicks(20);
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				ExpeditionWorlds w = worlds(p);
+				check(hasAdvancement(s, p, "minecraft:story/enter_the_end"), "earned 'The End?'");
+				check(hasAdvancement(s, p, "minecraft:end/root"), "End advancement tab unlocked");
+				TeleportTransition exit = ((EndPortalBlock) Blocks.END_PORTAL).getPortalDestination(w.end(), p, p.blockPosition());
+				check(exit != null && exit.newLevel() == w.overworld(), "end exit portal leads back to expedition overworld");
+				p.teleport(exit);
+			});
+			context.waitTicks(20);
+
+			// --- Earn a pile of progress, then die ------------------------------------------------------
+			server.runCommand("advancement grant @a everything");
+			server.runCommand("give @a minecraft:diamond 32");
+			server.runCommand("xp add @a 30 levels");
+			server.runCommand("item replace entity @a enderchest.0 with minecraft:netherite_ingot");
+			context.waitTicks(10);
+			int earned = server.computeOnServer(s -> completedAdvancements(s, player(s)).size());
+			check(earned > 100, "player has lots of advancements before dying (" + earned + ")");
+			check(server.computeOnServer(s -> player(s).experienceLevel >= 30), "player has 30+ XP levels before dying");
+
+			context.getInput().holdKey(InputConstants.KEY_TAB);
+			context.waitTicks(5);
+			context.takeScreenshot("02-stats-panel");
+			context.getInput().releaseKey(InputConstants.KEY_TAB);
+
+			server.runCommand("kill @a");
+			context.waitTicks(15);
+			check(server.computeOnServer(s -> data().phase == Phase.COUNTDOWN), "death starts the countdown");
+			check(server.computeOnServer(s -> player(s).gameMode() == GameType.SPECTATOR), "dead player is a spectator during the countdown");
+			check(server.computeOnServer(s -> data().totalDeaths == 1), "death was tallied");
+			check(context.computeOnClient(mc -> ClientExpeditionState.get().phase() == Phase.COUNTDOWN.ordinal()), "client shows the death overlay");
+			context.takeScreenshot("03-death-overlay");
+
+			// --- The reset ---------------------------------------------------------------------------
+			server.waitFor(s -> data().expeditionNumber == 2 && data().phase == Phase.RUNNING, TIMEOUT);
+			context.waitTicks(40);
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				check(dimension(p).equals("hardcore_expeditions:expedition_2_overworld"), "player moved to Expedition #2");
+				check(data().seed != 0, "new expedition has a seed");
+				check(p.gameMode() == GameType.SURVIVAL, "player is back in survival");
+				check(p.getInventory().isEmpty(), "inventory wiped");
+				check(p.getEnderChestInventory().isEmpty(), "ender chest wiped");
+				check(p.experienceLevel == 0, "XP wiped");
+				check(p.getHealth() == p.getMaxHealth(), "full health");
+				// Vanilla re-grants a few advancements on the very first tick (e.g. the crafting table
+				// recipe), exactly like for a brand-new player, so those don't count as left over.
+				List<String> left = completedAdvancements(s, p).stream().filter(id -> !grantedAutomatically(s, id)).toList();
+				check(left.isEmpty(), "all advancements wiped" + (left.isEmpty() ? "" : " (still have: " + left + ")"));
+				check(s.getLevel(levelKey("expedition_1_overworld")) == null, "Expedition #1 worlds unloaded");
+				check(data().history.size() == 1 && data().history.getFirst().durationMs > 0, "Expedition #1 recorded with its time");
+			});
+			context.waitTicks(40);
+			check(server.computeOnServer(s -> !Files.exists(expeditionFolder(s, "expedition_1_overworld"))), "Expedition #1 world folder deleted from disk");
+			check(context.computeOnClient(mc -> ClientExpeditionState.get().expedition() == 2 && ClientExpeditionState.get().longestRunMs() > 0), "client HUD shows Expedition #2 and a longest run");
+			context.getInput().holdKey(InputConstants.KEY_TAB);
+			context.waitTicks(5);
+			context.takeScreenshot("04-after-reset-stats");
+			context.getInput().releaseKey(InputConstants.KEY_TAB);
+
+			// --- The dragon completes the run --------------------------------------------------------
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				p.teleport(((EndPortalBlock) Blocks.END_PORTAL).getPortalDestination(worlds(p).overworld(), p, p.blockPosition()));
+			});
+			int waited = server.waitFor(s -> !worlds(player(s)).end().getDragons().isEmpty(), TIMEOUT);
+			log("dragon spawned after " + waited + " ticks");
+			server.runCommand("kill @e[type=minecraft:ender_dragon]");
+			server.waitFor(s -> data().phase == Phase.COMPLETED, TIMEOUT);
+			check(server.computeOnServer(s -> data().bestTimeMs != null), "dragon kill completes the expedition and records the time");
+			context.waitTicks(20);
+			context.takeScreenshot("05-completed");
+
+			// --- A new expedition after the win ------------------------------------------------------
+			server.runCommand("expedition new");
+			server.waitFor(s -> data().expeditionNumber == 3 && data().phase == Phase.RUNNING, TIMEOUT);
+			check(server.computeOnServer(s -> dimension(player(s))).equals("hardcore_expeditions:expedition_3_overworld"), "/expedition new after a win starts Expedition #3");
+
+			// --- HUD layout editor -------------------------------------------------------------------
+			context.setScreen(() -> new HudEditScreen(null));
+			context.waitTicks(10);
+			context.takeScreenshot("06-layout-editor");
+			context.setScreen(() -> null);
+		}
+		log("ALL CHECKS PASSED");
+	}
+
+	private static ExpeditionData data() {
+		return ExpeditionManager.get().data();
+	}
+
+	private static ServerPlayer player(MinecraftServer server) {
+		return server.getPlayerList().getPlayers().getFirst();
+	}
+
+	private static ExpeditionWorlds worlds(ServerPlayer player) {
+		return ExpeditionManager.get().worldsContaining(player.level());
+	}
+
+	private static String dimension(ServerPlayer player) {
+		return player.level().dimension().identifier().toString();
+	}
+
+	private static ResourceKey<Level> levelKey(String path) {
+		return ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(HardcoreExpeditions.MOD_ID, path));
+	}
+
+	private static Path expeditionFolder(MinecraftServer server, String path) {
+		return DimensionType.getStorageFolder(levelKey(path), server.getWorldPath(LevelResource.ROOT));
+	}
+
+	private static boolean hasAdvancement(MinecraftServer server, ServerPlayer player, String id) {
+		AdvancementHolder holder = server.getAdvancements().get(Identifier.parse(id));
+		return holder != null && player.getAdvancements().getOrStartProgress(holder).isDone();
+	}
+
+	private static List<String> completedAdvancements(MinecraftServer server, ServerPlayer player) {
+		List<String> done = new ArrayList<>();
+		for (AdvancementHolder holder : server.getAdvancements().getAllAdvancements()) {
+			if (player.getAdvancements().getOrStartProgress(holder).isDone()) {
+				done.add(holder.id().toString());
+			}
+		}
+		return done;
+	}
+
+	/** True for advancements vanilla gives every player automatically (they have a "minecraft:tick" criterion). */
+	private static boolean grantedAutomatically(MinecraftServer server, String id) {
+		AdvancementHolder holder = server.getAdvancements().get(Identifier.parse(id));
+		return holder != null && holder.value().criteria().values().stream().anyMatch(criterion -> criterion.trigger() == CriteriaTriggers.TICK);
+	}
+
+	private static void check(boolean ok, String what) {
+		if (!ok) {
+			log("FAIL: " + what);
+			throw new AssertionError(what);
+		}
+		log("PASS: " + what);
+	}
+
+	private static void log(String message) {
+		HardcoreExpeditions.LOGGER.info("[TEST] {}", message);
+	}
+}

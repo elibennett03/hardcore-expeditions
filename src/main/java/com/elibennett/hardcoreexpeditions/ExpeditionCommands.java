@@ -64,8 +64,11 @@ final class ExpeditionCommands {
 		}
 
 		long completed = data.history.stream().filter(run -> run.completed).count();
-		String best = data.bestTimeMs == null ? "none yet" : ExpeditionTime.format(data.bestTimeMs);
-		source.sendSuccess(() -> Component.literal("Expeditions finished: " + data.history.size() + " (" + completed + " beat the dragon)   Best time: " + best), false);
+		String longest = data.history.stream().mapToLong(run -> run.durationMs).max().stream()
+				.mapToObj(ExpeditionTime::format).findFirst().orElse("none yet");
+		String fastestWin = data.bestTimeMs == null ? "no wins yet" : ExpeditionTime.format(data.bestTimeMs);
+		source.sendSuccess(() -> Component.literal("Expeditions finished: " + data.history.size() + " (" + completed + " beat the dragon)"), false);
+		source.sendSuccess(() -> Component.literal("Longest run: " + longest + "   Fastest win: " + fastestWin), false);
 
 		List<RunRecord> recent = data.history.subList(Math.max(0, data.history.size() - 5), data.history.size());
 		for (RunRecord run : recent.reversed()) {

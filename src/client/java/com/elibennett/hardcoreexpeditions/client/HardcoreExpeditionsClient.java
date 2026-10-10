@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.resources.Identifier;
 
 public class HardcoreExpeditionsClient implements ClientModInitializer {
@@ -23,6 +24,14 @@ public class HardcoreExpeditionsClient implements ClientModInitializer {
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientExpeditionState.clear());
 
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(HardcoreExpeditions.MOD_ID, "expedition"), new ExpeditionHud());
+		HudElementRegistry.attachElementAfter(VanillaHudElements.PLAYER_LIST, Identifier.fromNamespaceAndPath(HardcoreExpeditions.MOD_ID, "death_overlay"), ExpeditionHud.DEATH_OVERLAY);
+		// Chat text always draws on top of HUD elements, so hide it for the few seconds the death
+		// overlay is up (the overlay shows the death message itself). Typing with T still works.
+		HudElementRegistry.replaceElement(VanillaHudElements.CHAT, chat -> (graphics, deltaTracker) -> {
+			if (!ExpeditionHud.deathOverlayShowing()) {
+				chat.extractRenderState(graphics, deltaTracker);
+			}
+		});
 
 		ExpeditionKeys.register();
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {

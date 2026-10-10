@@ -272,10 +272,12 @@ public final class ExpeditionManager {
 
 	private void showCountdown(int remaining) {
 		this.countdownShown = remaining;
+		// Vanilla titles are drawn 4x size and can't shrink, so keep the big line short (a name is at
+		// most 16 characters) and put the rest in the subtitle.
 		Component title = this.deadPlayer.isEmpty()
-				? Component.literal("New expedition!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
-				: Component.literal(this.deadPlayer + " has died").withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
-		Component subtitle = Component.literal("New world in " + remaining + "...").withStyle(ChatFormatting.GRAY);
+				? Component.literal("New expedition").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
+				: Component.literal(this.deadPlayer).withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
+		Component subtitle = Component.literal((this.deadPlayer.isEmpty() ? "" : "has died · ") + "new world in " + remaining).withStyle(ChatFormatting.GRAY);
 		for (ServerPlayer player : this.server.getPlayerList().getPlayers()) {
 			if (!hasMod(player)) {
 				sendTitle(player, title, subtitle, 30);
@@ -413,8 +415,8 @@ public final class ExpeditionManager {
 						.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD), false);
 		for (ServerPlayer player : this.server.getPlayerList().getPlayers()) {
 			sendTitle(player,
-					Component.literal("Expedition complete!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-					Component.literal(time + (personalBest ? "  (new best!)" : "")).withStyle(ChatFormatting.YELLOW),
+					Component.literal("Victory!").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
+					Component.literal("Expedition #" + this.data.expeditionNumber + " in " + time + (personalBest ? " · new best!" : "")).withStyle(ChatFormatting.YELLOW),
 					100);
 		}
 		save();
@@ -446,7 +448,8 @@ public final class ExpeditionManager {
 				this.deadPlayer,
 				this.deathMessage,
 				leaderboard(),
-				this.data.history.size()
+				this.data.history.size(),
+				this.data.history.stream().mapToLong(run -> run.durationMs).max().orElse(-1)
 		);
 	}
 
