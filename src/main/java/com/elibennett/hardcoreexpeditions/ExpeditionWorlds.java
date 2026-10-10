@@ -88,6 +88,17 @@ public final class ExpeditionWorlds {
 		return level == overworld() || level == nether() || level == end();
 	}
 
+	/** The vanilla dimension this world stands in for, so advancements like "We Need to Go Deeper" still work. */
+	public ResourceKey<Level> vanillaDimension(Level level) {
+		if (level == nether()) {
+			return Level.NETHER;
+		}
+		if (level == end()) {
+			return Level.END;
+		}
+		return Level.OVERWORLD;
+	}
+
 	public boolean isEnd(Level level) {
 		return level == end();
 	}

@@ -18,7 +18,9 @@ import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.ServerScoreboard;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerBossEvent;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
@@ -91,6 +93,15 @@ public final class ExpeditionManager {
 
 	public static ExpeditionManager get() {
 		return instance;
+	}
+
+	/**
+	 * The dimension key advancements should see for this world: expedition worlds report as the
+	 * vanilla Overworld/Nether/End, everything else reports its real key.
+	 */
+	public static ResourceKey<Level> vanillaDimension(ServerLevel level) {
+		ExpeditionWorlds worlds = instance == null ? null : instance.worldsContaining(level);
+		return worlds == null ? level.dimension() : worlds.vanillaDimension(level);
 	}
 
 	static void onServerStarted(MinecraftServer server) {

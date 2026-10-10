@@ -6,8 +6,10 @@
 		"DedicatedServerMixin",
 		"EndPortalBlockMixin",
 		"EnderDragonFightMixin",
+		"LocationPredicateMixin",
 		"MinecraftServerAccessor",
 		"NetherPortalBlockMixin",
+		"ServerPlayerAdvancementsMixin",
 		"ServerPlayerMixin",
 		"TheEndGatewayBlockEntityMixin"
 	],
