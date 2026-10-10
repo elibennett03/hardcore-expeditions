@@ -43,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -437,7 +438,14 @@ public final class ExpeditionManager {
 				this.data.bestTimeMs == null ? -1 : this.data.bestTimeMs,
 				this.countdownShown,
 				this.deadPlayer,
-				this.deathMessage
+				this.deathMessage,
+				this.data.players.values().stream()
+						.filter(stats -> stats.name != null)
+						.sorted(Comparator.comparingInt((PlayerStats stats) -> stats.deaths).reversed())
+						.limit(20)
+						.map(stats -> new ExpeditionSyncPayload.PlayerDeaths(stats.name, stats.deaths))
+						.toList(),
+				this.data.history.size()
 		);
 	}
 

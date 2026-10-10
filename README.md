@@ -16,7 +16,7 @@ Requires Fabric Loader 0.19.5+ and [Fabric API](https://modrinth.com/mod/fabric-
 
 **Server:** put the matching `hardcore-expeditions` jar and Fabric API in the server's `mods/` folder.
 
-**Players (optional, recommended):** add the same jar and Fabric API to your client. In Lunar Client, open the Fabric add-on settings and drag the jars in. With the mod installed you get the custom on-screen timer panel and death overlay. Without it, you still see everything through a boss bar and on-screen titles.
+**Players (optional, recommended):** add the same jar and Fabric API to your client. In Lunar Client, open the Fabric add-on settings and drag the jars in. With the mod installed you get a small `Expedition #N  time  deaths` line in the top-left, a stats panel (most deaths, best time) while holding **Tab**, and the death overlay. Without it, you still see everything through a boss bar and on-screen titles.
 
 **Singleplayer:** install it on your client and create a world. Works the same way.
 
