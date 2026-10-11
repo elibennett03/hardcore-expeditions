@@ -22,6 +22,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.item.ItemStack;
@@ -407,6 +408,10 @@ public final class ExpeditionManager {
 		player.setAirSupply(player.getMaxAirSupply());
 		player.resetFallDistance();
 		player.setRespawnPosition(null, false);
+		// Vanilla resets these in die(), which expeditions cancel. Without this, phantoms keep
+		// counting from the last run and show up on the first night.
+		player.resetStat(Stats.CUSTOM.get(Stats.TIME_SINCE_REST));
+		player.resetStat(Stats.CUSTOM.get(Stats.TIME_SINCE_DEATH));
 
 		PlayerAdvancements advancements = player.getAdvancements();
 		for (AdvancementHolder advancement : this.server.getAdvancements().getAllAdvancements()) {

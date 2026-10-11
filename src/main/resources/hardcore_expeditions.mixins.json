@@ -3,6 +3,7 @@
 	"package": "com.elibennett.hardcoreexpeditions.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
+		"BaseFireBlockMixin",
 		"DedicatedServerMixin",
 		"EndPortalBlockMixin",
 		"EnderDragonFightMixin",

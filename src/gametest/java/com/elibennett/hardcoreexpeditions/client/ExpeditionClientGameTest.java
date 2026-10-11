@@ -12,14 +12,17 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerCon
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.triggers.CriteriaTriggers;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EndPortalBlock;
 import net.minecraft.world.level.block.NetherPortalBlock;
@@ -53,6 +56,15 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			check(true, "client received expedition data (mod detected over the network)");
 			context.waitTicks(40);
 			context.takeScreenshot("01-hud");
+
+			// --- Lighting an obsidian frame opens a Nether portal in the expedition's worlds -----------
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				ExpeditionWorlds w = worlds(p);
+				BlockPos origin = p.blockPosition().offset(6, 30, 0);
+				check(lightPortalFrame(w.overworld(), origin), "lighting an obsidian frame in the expedition overworld creates a nether portal");
+				check(lightPortalFrame(w.nether(), new BlockPos(origin.getX() / 8, 64, origin.getZ() / 8)), "lighting an obsidian frame in the expedition nether creates a nether portal");
+			});
 
 			// --- Portals lead to this expedition's Nether and End, and their advancements trigger -----
 			server.runOnServer(s -> {
@@ -97,6 +109,9 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			int earned = server.computeOnServer(s -> completedAdvancements(s, player(s)).size());
 			check(earned > 100, "player has lots of advancements before dying (" + earned + ")");
 			check(server.computeOnServer(s -> player(s).experienceLevel >= 30), "player has 30+ XP levels before dying");
+			// Five nights without sleep, well past the three phantoms need.
+			server.runOnServer(s -> player(s).awardStat(Stats.TIME_SINCE_REST, 5 * 24000));
+			check(server.computeOnServer(s -> sinceRest(player(s)) >= 5 * 24000), "player has gone 5 days without sleep before dying");
 
 			context.getInput().holdKey(InputConstants.KEY_TAB);
 			context.waitTicks(5);
@@ -122,6 +137,7 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 				check(p.getInventory().isEmpty(), "inventory wiped");
 				check(p.getEnderChestInventory().isEmpty(), "ender chest wiped");
 				check(p.experienceLevel == 0, "XP wiped");
+				check(sinceRest(p) < 24000, "time since rest reset, so phantoms don't come the first night (" + sinceRest(p) + " ticks)");
 				check(p.getHealth() == p.getMaxHealth(), "full health");
 				// Vanilla re-grants a few advancements on the very first tick (e.g. the crafting table
 				// recipe), exactly like for a brand-new player, so those don't count as left over.
@@ -221,6 +237,23 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 	private static boolean grantedAutomatically(MinecraftServer server, String id) {
 		AdvancementHolder holder = server.getAdvancements().get(Identifier.parse(id));
 		return holder != null && holder.value().criteria().values().stream().anyMatch(criterion -> criterion.trigger() == CriteriaTriggers.TICK);
+	}
+
+	/** Builds a 4x5 obsidian frame at {@code origin} (open along X), lights it like flint and steel would, and reports whether it became a portal. */
+	private static boolean lightPortalFrame(ServerLevel level, BlockPos origin) {
+		for (int x = 0; x < 4; x++) {
+			for (int y = 0; y < 5; y++) {
+				boolean edge = x == 0 || x == 3 || y == 0 || y == 4;
+				level.setBlockAndUpdate(origin.offset(x, y, 0), edge ? Blocks.OBSIDIAN.defaultBlockState() : Blocks.AIR.defaultBlockState());
+			}
+		}
+		BlockPos inside = origin.offset(1, 1, 0);
+		level.setBlockAndUpdate(inside, BaseFireBlock.getState(level, inside));
+		return level.getBlockState(inside).is(Blocks.NETHER_PORTAL) && level.getBlockState(origin.offset(2, 3, 0)).is(Blocks.NETHER_PORTAL);
+	}
+
+	private static int sinceRest(ServerPlayer player) {
+		return player.getStats().getValue(Stats.CUSTOM.get(Stats.TIME_SINCE_REST));
 	}
 
 	private static void check(boolean ok, String what) {
