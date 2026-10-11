@@ -67,6 +67,12 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 				check(lightPortalFrame(w.nether(), new BlockPos(origin.getX() / 8, 64, origin.getZ() / 8)), "lighting an obsidian frame in the expedition nether creates a nether portal");
 			});
 
+			// --- The allow_entering_nether_using_portals game rule applies to the expedition Nether ---
+			server.runCommand("gamerule allow_entering_nether_using_portals false");
+			check(server.computeOnServer(s -> !worlds(player(s)).overworld().isAllowedToEnterPortal(worlds(player(s)).nether())), "turning off allow_entering_nether_using_portals blocks the expedition nether");
+			server.runCommand("gamerule allow_entering_nether_using_portals true");
+			check(server.computeOnServer(s -> worlds(player(s)).overworld().isAllowedToEnterPortal(worlds(player(s)).nether())), "allow_entering_nether_using_portals on lets you into the expedition nether");
+
 			// --- Portals lead to this expedition's Nether and End, and their advancements trigger -----
 			server.runOnServer(s -> {
 				ServerPlayer p = player(s);
@@ -119,9 +125,13 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			context.takeScreenshot("02-stats-panel");
 			context.getInput().releaseKey(InputConstants.KEY_TAB);
 
+			server.runCommand("scoreboard objectives add test_deaths deathCount");
 			server.runCommand("kill @a");
 			context.waitTicks(15);
 			check(server.computeOnServer(s -> data().phase == Phase.COUNTDOWN), "death starts the countdown");
+			check(server.computeOnServer(s -> player(s).getStats().getValue(Stats.CUSTOM.get(Stats.DEATHS)) == 1), "death shows in the vanilla Statistics screen");
+			check(server.computeOnServer(s -> s.getScoreboard().getPlayerScoreInfo(player(s), s.getScoreboard().getObjective("test_deaths")).value() == 1), "death counts on deathCount scoreboards");
+			server.runCommand("scoreboard objectives remove test_deaths");
 			check(server.computeOnServer(s -> player(s).gameMode() == GameType.SPECTATOR), "dead player is a spectator during the countdown");
 			check(server.computeOnServer(s -> data().totalDeaths == 1), "death was tallied");
 			check(context.computeOnClient(mc -> ClientExpeditionState.get().phase() == Phase.COUNTDOWN.ordinal()), "client shows the death overlay");

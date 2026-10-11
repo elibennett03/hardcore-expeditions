@@ -25,6 +25,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
@@ -34,6 +35,8 @@ import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.ScoreAccess;
+import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import org.apache.commons.io.FileUtils;
 
 import java.io.IOException;
@@ -187,6 +190,7 @@ public final class ExpeditionManager {
 		}
 
 		Component message = player.getCombatTracker().getDeathMessage();
+		LivingEntity killer = player.getKillCredit();
 		player.setHealth(player.getMaxHealth());
 		player.clearFire();
 		player.removeAllEffects();
@@ -201,6 +205,7 @@ public final class ExpeditionManager {
 		}
 
 		recordDeath(player);
+		awardVanillaDeathStats(player, source, killer);
 		if (this.data.phase == Phase.RUNNING) {
 			endRun(player.getScoreboardName(), message.getString(), false);
 		}
@@ -209,6 +214,19 @@ public final class ExpeditionManager {
 		save();
 		syncAll();
 		return true;
+	}
+
+	/**
+	 * The parts of vanilla's die() that keep statistics: the Statistics screen's "Deaths" and
+	 * "Killed by", the killer's kill stats, and any deathCount scoreboard objectives.
+	 */
+	private static void awardVanillaDeathStats(ServerPlayer player, DamageSource source, LivingEntity killer) {
+		player.level().getScoreboard().forAllObjectives(ObjectiveCriteria.DEATH_COUNT, player, ScoreAccess::increment);
+		if (killer != null) {
+			player.awardStat(Stats.ENTITY_KILLED_BY.get(killer.getType()));
+			killer.awardKillScore(player, source);
+		}
+		player.awardStat(Stats.DEATHS);
 	}
 
 	/** True while the countdown to the next expedition runs and the player is still in the old one. */

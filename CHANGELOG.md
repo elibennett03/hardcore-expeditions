@@ -5,6 +5,8 @@
 - Walking into the End exit portal after killing the dragon now rolls the credits, like vanilla. They roll again each time you win a new expedition.
 - Dying after beating the dragon now resets everyone into a new expedition, like any other death. Before, that player was stuck in spectator until an operator ran `/expedition new`.
 - Everyone is invulnerable during the countdown to the next expedition, so a second death can't happen while the death screen is up, and wouldn't be counted if it did.
+- Deaths now show in vanilla's Statistics screen ("Deaths", "Killed by") and count on `deathCount` scoreboards.
+- The `allow_entering_nether_using_portals` game rule now works for expedition Nethers.
 
 ## 1.0.1
 
