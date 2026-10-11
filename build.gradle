@@ -1,12 +1,15 @@
 plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 	id 'maven-publish'
+	id 'com.modrinth.minotaur' version '2.10.0'
 }
 
 // Load the dependency versions for the Minecraft version being built (see versions/*.properties).
 def mcProps = new Properties()
 file("versions/${project.mc}.properties").withInputStream { mcProps.load(it) }
 mcProps.each { key, value -> project.ext.set(key, value) }
+
+def modVersion = project.version
 
 // e.g. hardcore-expeditions-1.0.0+mc26.3.jar, so jars for different versions don't overwrite each other.
 version = "${project.version}+mc${project.minecraft_version}"
@@ -122,5 +125,27 @@ fabricApi {
 		enableGameTests = false
 		enableClientGameTests = true
 		eula = true
+	}
+}
+
+// Upload to Modrinth: MODRINTH_TOKEN=... ./gradlew modrinth (add -Pmc=26.3 for 26.3).
+// Add -PmodrinthDryRun to check what would be uploaded without uploading anything.
+// ./gradlew modrinthSyncBody updates the project page from modrinth/description.md.
+modrinth {
+	token = System.getenv("MODRINTH_TOKEN")
+	projectId = "hardcore-expeditions"
+	versionNumber = project.version
+	versionName = "${modVersion} for ${project.minecraft_version}"
+	versionType = "release"
+	uploadFile = tasks.jar
+	gameVersions = [project.minecraft_version]
+	loaders = ["fabric"]
+	// The newest section of CHANGELOG.md.
+	changelog = file("CHANGELOG.md").text.split(/(?m)^## /)[1].readLines().drop(1).join("\n").trim()
+	syncBodyFrom = file("modrinth/description.md").text
+	debugMode = project.hasProperty("modrinthDryRun")
+	dependencies {
+		required.project "fabric-api"
+		optional.project "modmenu"
 	}
 }
