@@ -193,19 +193,27 @@ public final class ExpeditionManager {
 		player.setGameMode(GameType.SPECTATOR);
 		this.server.getPlayerList().broadcastSystemMessage(message, false);
 
-		if (this.data.phase == Phase.COMPLETED) {
-			// Victory lap after the dragon: deaths don't count anymore.
+		if (this.data.phase == Phase.COUNTDOWN) {
+			// Everyone is invulnerable during the countdown, so only things like /kill get here.
+			// The run is already over, so this death doesn't count.
+			syncAll();
 			return true;
 		}
 
 		recordDeath(player);
 		if (this.data.phase == Phase.RUNNING) {
 			endRun(player.getScoreboardName(), message.getString(), false);
-			startCountdown(player.getScoreboardName(), message);
 		}
+		// A death after the dragon still resets everyone; that run is already recorded as a win.
+		startCountdown(player.getScoreboardName(), message);
 		save();
 		syncAll();
 		return true;
+	}
+
+	/** True while the countdown to the next expedition runs and the player is still in the old one. */
+	public boolean protectsDuringCountdown(ServerPlayer player) {
+		return this.data.phase == Phase.COUNTDOWN && this.worlds != null && this.worlds.contains(player.level());
 	}
 
 	/** Starts a new expedition on request (the {@code /expedition new} command). */
@@ -412,6 +420,8 @@ public final class ExpeditionManager {
 		// counting from the last run and show up on the first night.
 		player.resetStat(Stats.CUSTOM.get(Stats.TIME_SINCE_REST));
 		player.resetStat(Stats.CUSTOM.get(Stats.TIME_SINCE_DEATH));
+		// Each expedition is a new world, so beating the dragon rolls the credits again, like vanilla.
+		player.seenCredits = false;
 
 		PlayerAdvancements advancements = player.getAdvancements();
 		for (AdvancementHolder advancement : this.server.getAdvancements().getAllAdvancements()) {

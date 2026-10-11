@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerConnection;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+import net.minecraft.client.gui.screens.WinScreen;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.triggers.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
@@ -167,10 +168,55 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			context.waitTicks(20);
 			context.takeScreenshot("05-completed");
 
-			// --- A new expedition after the win ------------------------------------------------------
-			server.runCommand("expedition new");
+			// --- Walking into the exit portal rolls the credits, then returns you to the overworld ----
+			server.runOnServer(s -> player(s).level().setBlockAndUpdate(player(s).blockPosition(), Blocks.END_PORTAL.defaultBlockState()));
+			context.waitFor(mc -> mc.gui.screen() instanceof WinScreen, TIMEOUT);
+			check(server.computeOnServer(s -> player(s).seenCredits), "exit portal in the expedition end rolls the credits");
+			context.takeScreenshot("06-credits");
+			context.runOnClient(mc -> mc.gui.screen().onClose());
+			server.waitFor(s -> dimension(player(s)).equals("hardcore_expeditions:expedition_2_overworld"), TIMEOUT);
+			check(server.computeOnServer(s -> player(s).gameMode() == GameType.SURVIVAL), "after the credits you're back in the expedition overworld in survival");
+
+			// --- Dying after the win still resets everyone --------------------------------------------
+			// Vanilla makes a player invulnerable until their client has loaded in after the credits.
+			server.waitFor(s -> player(s).connection.hasClientLoaded(), TIMEOUT);
+			int deathsBefore = server.computeOnServer(s -> data().totalDeaths);
+			int runsBefore = server.computeOnServer(s -> data().history.size());
+			server.runCommand("kill @a");
+			context.waitTicks(15);
+			check(server.computeOnServer(s -> data().phase == Phase.COUNTDOWN), "dying after the dragon starts the countdown");
+			check(server.computeOnServer(s -> data().totalDeaths == deathsBefore + 1), "a death after the dragon is counted");
+			check(server.computeOnServer(s -> data().history.size() == runsBefore && data().history.getLast().completed), "the won run stays recorded as a win");
 			server.waitFor(s -> data().expeditionNumber == 3 && data().phase == Phase.RUNNING, TIMEOUT);
-			check(server.computeOnServer(s -> dimension(player(s))).equals("hardcore_expeditions:expedition_3_overworld"), "/expedition new after a win starts Expedition #3");
+			context.waitTicks(20);
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				check(dimension(p).equals("hardcore_expeditions:expedition_3_overworld"), "a death after the win starts Expedition #3");
+				check(p.gameMode() == GameType.SURVIVAL, "player is back in survival after the post-win death");
+				check(!p.seenCredits, "a new expedition rolls the credits again next time");
+			});
+
+			// --- Nobody can die during the countdown, and a death then doesn't count ------------------
+			server.waitFor(s -> player(s).connection.hasClientLoaded(), TIMEOUT);
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				p.hurtServer(p.level(), p.damageSources().generic(), 4.0F);
+				check(p.getHealth() < p.getMaxHealth(), "players take damage normally during a run");
+				p.setHealth(p.getMaxHealth());
+			});
+			server.runCommand("expedition new");
+			server.runOnServer(s -> {
+				ServerPlayer p = player(s);
+				check(data().phase == Phase.COUNTDOWN, "/expedition new starts the countdown");
+				int deaths = data().totalDeaths;
+				p.hurtServer(p.level(), p.damageSources().generic(), 4.0F);
+				p.kill(p.level());
+				check(p.getHealth() == p.getMaxHealth() && p.gameMode() == GameType.SURVIVAL, "players are invulnerable during the countdown (even to /kill)");
+				p.die(p.damageSources().generic());
+				check(data().totalDeaths == deaths && p.gameMode() == GameType.SPECTATOR, "a death during the countdown isn't counted");
+			});
+			server.waitFor(s -> data().expeditionNumber == 4 && data().phase == Phase.RUNNING, TIMEOUT);
+			check(server.computeOnServer(s -> dimension(player(s))).equals("hardcore_expeditions:expedition_4_overworld"), "/expedition new starts Expedition #4");
 
 			// --- /expedition reset wipes all stats and starts over at #1, in fresh world folders -----
 			check(server.computeOnServer(s -> s.getScoreboard().getObjective("he_deaths") == null), "no death numbers in the vanilla Tab list");
@@ -180,7 +226,7 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			server.runOnServer(s -> {
 				check(data().totalDeaths == 0 && data().players.isEmpty(), "reset cleared all deaths");
 				check(data().history.isEmpty() && data().bestTimeMs == null, "reset cleared run history and best time");
-				check(dimension(player(s)).equals("hardcore_expeditions:expedition_4_overworld"), "Expedition #1 after a reset uses new world folders");
+				check(dimension(player(s)).equals("hardcore_expeditions:expedition_5_overworld"), "Expedition #1 after a reset uses new world folders");
 				check(player(s).getInventory().isEmpty(), "reset gave everyone a fresh start");
 			});
 			check(context.computeOnClient(mc -> ClientExpeditionState.get().expedition() == 1 && ClientExpeditionState.get().totalDeaths() == 0), "HUD shows Expedition #1 with 0 deaths after reset");
@@ -188,7 +234,7 @@ public class ExpeditionClientGameTest implements FabricClientGameTest {
 			// --- HUD layout editor -------------------------------------------------------------------
 			context.setScreen(() -> new HudEditScreen(null));
 			context.waitTicks(10);
-			context.takeScreenshot("06-layout-editor");
+			context.takeScreenshot("07-layout-editor");
 			context.setScreen(() -> null);
 		}
 		log("ALL CHECKS PASSED");

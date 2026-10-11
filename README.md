@@ -12,7 +12,7 @@ Everything happens inside the running server. Nobody gets disconnected, and old 
 
 ## Installing
 
-Requires Fabric Loader 0.19.5+ and [Fabric API](https://modrinth.com/mod/fabric-api) for your Minecraft version. Use the jar that matches your version: `hardcore-expeditions-1.0.1+mc26.2.jar` or `hardcore-expeditions-1.0.1+mc26.3.jar`. The server and every player must use the same Minecraft version. The world-creation library ([Fantasy](https://github.com/NucleoidMC/fantasy)) is bundled inside the jar.
+Requires Fabric Loader 0.19.5+ and [Fabric API](https://modrinth.com/mod/fabric-api) for your Minecraft version. Use the jar that matches your version: `hardcore-expeditions-1.0.2+mc26.2.jar` or `hardcore-expeditions-1.0.2+mc26.3.jar`. The server and every player must use the same Minecraft version. The world-creation library ([Fantasy](https://github.com/NucleoidMC/fantasy)) is bundled inside the jar.
 
 **Server:** put the matching `hardcore-expeditions` jar and Fabric API in the server's `mods/` folder.
 
